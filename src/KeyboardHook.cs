@@ -12,7 +12,7 @@ namespace ArrowOverlay
         public delegate bool KeyHandler(int vk, bool down);
 
         private readonly KeyHandler handler;
-        private readonly NativeMethods.LowLevelKeyboardProc proc; // kept alive so the GC can't collect it
+        private readonly NativeMethods.LowLevelHookProc proc; // kept alive so the GC can't collect it
         private IntPtr hook;
 
         public KeyboardHook(KeyHandler handler)

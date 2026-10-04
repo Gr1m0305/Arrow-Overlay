@@ -8,9 +8,9 @@ using System.Windows.Forms;
 
 namespace ArrowOverlay
 {
-    // A borderless, click-through, always-on-top layered window that draws the line.
-    // It is sized to the line's bounding box and painted with per-pixel alpha via
-    // UpdateLayeredWindow, so it never takes focus or intercepts the mouse.
+    // A borderless, click-through, always-on-top layered window. It covers only the area
+    // being drawn and is painted with per-pixel alpha via UpdateLayeredWindow, so it never
+    // takes focus or intercepts the mouse.
     internal sealed class OverlayWindow : NativeWindow, IDisposable
     {
         // Backing DIB that the window's pixels are copied from. Grown on demand, never shrunk.
@@ -35,34 +35,10 @@ namespace ArrowOverlay
             CreateHandle(cp);
         }
 
-        // Draws the line through a and b (screen pixels), extended past both edges of clip,
-        // and shows nothing outside clip. If a and b coincide there's no direction yet, so
-        // just a dot is drawn at a. opacity scales the whole overlay (255 = solid, 128 = half).
-        public void Draw(Point a, Point b, Rectangle clip, Color colour, float lineWidth, byte opacity)
+        // Shows the overlay over bounds (screen pixels), painted by paint in screen coordinates.
+        // opacity scales the whole overlay (255 = solid, 128 = half).
+        public void Draw(Rectangle bounds, byte opacity, Action<Graphics> paint)
         {
-            float dx = b.X - a.X;
-            float dy = b.Y - a.Y;
-            float length = (float)Math.Sqrt(dx * dx + dy * dy);
-            bool isLine = length >= 1f;
-            float dotRadius = lineWidth * 1.5f;
-
-            // a lies inside clip, so reaching one diagonal out from it in both directions
-            // is guaranteed to cross the edges.
-            PointF start = a, end = a;
-            if (isLine)
-            {
-                float reach = (float)Math.Sqrt((double)clip.Width * clip.Width + (double)clip.Height * clip.Height) + lineWidth;
-                float ux = dx / length * reach;
-                float uy = dy / length * reach;
-                start = new PointF(a.X - ux, a.Y - uy);
-                end = new PointF(a.X + ux, a.Y + uy);
-            }
-
-            float pad = (isLine ? lineWidth : dotRadius) + 2f; // spare pixels for anti-aliasing
-            Rectangle bounds = Rectangle.FromLTRB(
-                (int)Math.Floor(Math.Min(start.X, end.X) - pad), (int)Math.Floor(Math.Min(start.Y, end.Y) - pad),
-                (int)Math.Ceiling(Math.Max(start.X, end.X) + pad), (int)Math.Ceiling(Math.Max(start.Y, end.Y) + pad));
-            bounds.Intersect(clip);
             if (bounds.Width <= 0 || bounds.Height <= 0)
             {
                 Hide();
@@ -80,17 +56,7 @@ namespace ArrowOverlay
                 g.CompositingMode = CompositingMode.SourceOver;
                 g.SmoothingMode = SmoothingMode.AntiAlias;
                 g.TranslateTransform(-bounds.X, -bounds.Y);
-
-                if (isLine)
-                {
-                    using (var pen = new Pen(colour, lineWidth))
-                        g.DrawLine(pen, start, end);
-                }
-                else
-                {
-                    using (var brush = new SolidBrush(colour))
-                        g.FillEllipse(brush, a.X - dotRadius, a.Y - dotRadius, dotRadius * 2, dotRadius * 2);
-                }
+                paint(g);
             }
 
             var dst = new NativeMethods.POINT(bounds.X, bounds.Y);

@@ -4,13 +4,12 @@ using System.Windows.Forms;
 
 namespace ArrowOverlay
 {
-    // Dialog for choosing the two hotkeys. Click a box, then press the key you want.
+    // Dialog for choosing the hotkeys: one row per label. Click a box, then press the key you want.
     internal sealed class HotkeyForm : Form
     {
-        private readonly HotkeyBox point1Box;
-        private readonly HotkeyBox point2Box;
+        private readonly HotkeyBox[] boxes;
 
-        public HotkeyForm(int point1Key, int point2Key)
+        public HotkeyForm(string[] labels, int[] keys, int[] defaultKeys)
         {
             Text = "Arrow Overlay - Hotkeys";
             Font = SystemFonts.MessageBoxFont;
@@ -23,9 +22,6 @@ namespace ArrowOverlay
             AutoSizeMode = AutoSizeMode.GrowAndShrink;
             Padding = new Padding(12);
 
-            point1Box = new HotkeyBox { KeyCode = point1Key };
-            point2Box = new HotkeyBox { KeyCode = point2Key };
-
             var layout = new TableLayoutPanel
             {
                 AutoSize = true,
@@ -36,19 +32,22 @@ namespace ArrowOverlay
             layout.ColumnStyles.Add(new ColumnStyle(SizeType.AutoSize));
             layout.ColumnStyles.Add(new ColumnStyle(SizeType.AutoSize));
 
-            layout.Controls.Add(MakeLabel("Set point 1:"), 0, 0);
-            layout.Controls.Add(point1Box, 1, 0);
-            layout.Controls.Add(MakeLabel("Set point 2:"), 0, 1);
-            layout.Controls.Add(point2Box, 1, 1);
+            boxes = new HotkeyBox[labels.Length];
+            for (int i = 0; i < labels.Length; i++)
+            {
+                boxes[i] = new HotkeyBox { KeyCode = keys[i] };
+                layout.Controls.Add(MakeLabel(labels[i]), 0, i);
+                layout.Controls.Add(boxes[i], 1, i);
+            }
 
             var hint = new Label
             {
                 AutoSize = true,
                 ForeColor = SystemColors.GrayText,
                 Margin = new Padding(3, 8, 3, 3),
-                Text = "Click a box, then press the key you want to use.\nPress both keys together to delete the line.",
+                Text = "Click a box, then press the key you want to use.\nPressing both point keys together also deletes the line.",
             };
-            layout.Controls.Add(hint, 0, 2);
+            layout.Controls.Add(hint, 0, labels.Length);
             layout.SetColumnSpan(hint, 2);
 
             var ok = new Button { Text = "OK", AutoSize = true };
@@ -57,8 +56,8 @@ namespace ArrowOverlay
             ok.Click += OnOk;
             defaults.Click += delegate
             {
-                point1Box.KeyCode = Settings.DefaultPoint1Key;
-                point2Box.KeyCode = Settings.DefaultPoint2Key;
+                for (int i = 0; i < boxes.Length; i++)
+                    boxes[i].KeyCode = defaultKeys[i];
             };
 
             var buttons = new FlowLayoutPanel
@@ -72,17 +71,25 @@ namespace ArrowOverlay
             buttons.Controls.Add(cancel);
             buttons.Controls.Add(ok);
             buttons.Controls.Add(defaults);
-            layout.Controls.Add(buttons, 0, 3);
+            layout.Controls.Add(buttons, 0, labels.Length + 1);
             layout.SetColumnSpan(buttons, 2);
 
             Controls.Add(layout);
             CancelButton = cancel;
-            ActiveControl = ok; // so a stray key press doesn't immediately rebind point 1
+            ActiveControl = ok; // so a stray key press doesn't immediately rebind the first key
         }
 
-        public int Point1Key { get { return point1Box.KeyCode; } }
-
-        public int Point2Key { get { return point2Box.KeyCode; } }
+        // The chosen keys, in the same order as the labels.
+        public int[] ChosenKeys
+        {
+            get
+            {
+                var keys = new int[boxes.Length];
+                for (int i = 0; i < boxes.Length; i++)
+                    keys[i] = boxes[i].KeyCode;
+                return keys;
+            }
+        }
 
         private static Label MakeLabel(string text)
         {
@@ -91,9 +98,9 @@ namespace ArrowOverlay
 
         private void OnOk(object sender, EventArgs e)
         {
-            if (point1Box.KeyCode == point2Box.KeyCode)
+            if (!Settings.AllDifferent(ChosenKeys))
             {
-                MessageBox.Show(this, "The two hotkeys must be different keys.", Text, MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                MessageBox.Show(this, "Each hotkey must be a different key.", Text, MessageBoxButtons.OK, MessageBoxIcon.Warning);
                 return;
             }
             DialogResult = DialogResult.OK;
@@ -151,6 +158,8 @@ namespace ArrowOverlay
             var key = (Keys)vk;
             if (key == Keys.Space)
                 return "Space";
+            if (key == Keys.Back)
+                return "Backspace";
 
             // Numpad keys map to the same characters as the main keys, so keep their enum names.
             bool numpad = vk >= (int)Keys.NumPad0 && vk <= (int)Keys.Divide;
