@@ -9,14 +9,15 @@ using System.Windows.Forms;
 namespace ArrowOverlay
 {
     // Owns the tray icon, the global hotkeys and the overlay, and runs the line-placing state machine:
-    //   point 1 key   -> a 50% dot follows the mouse (snapped to building centres with smart lock)
+    //   point 1 key   -> (Tab) a 50% dot follows the mouse (snapped to building centres with smart lock)
     //   point 1 again -> lock the dot in as point 1, preview a 50% line to the cursor
-    //   point 2 key   -> fix the line at full opacity
-    //   both at once -> delete the line
+    //   right click   -> lock point 1, or set point 2 to fix the line at full opacity
     //   calibrate key -> set the grid for smart lock from the village's left and right corners
     //   swap key      -> switch between snapping to tile corners and tile centres
     //   delete key    -> (Backspace) delete the line or cancel calibration
-    //   menu key      -> open the tray menu at the mouse
+    //   menu key      -> (M) open the tray menu at the mouse
+    //
+    // Hotkeys are ignored while Alt, Ctrl or Windows is held, so shortcuts like Alt+Tab still work.
     //
     // Once a line (or calibration) is started, a right click does the same as the key for the current
     // step, and is kept from the game. Left clicks always go to the game.
@@ -76,7 +77,6 @@ namespace ArrowOverlay
         private readonly Timer hudTimer; // keeps the label up briefly after a swap
         private readonly Timer savedTimer; // keeps a newly saved grid up briefly
         private readonly KeyState point1Key = new KeyState();
-        private readonly KeyState point2Key = new KeyState();
         private readonly KeyState calibrateKey = new KeyState();
         private readonly KeyState swapKey = new KeyState();
         private readonly KeyState deleteKey = new KeyState();
@@ -175,9 +175,8 @@ namespace ArrowOverlay
             mouseHook = new MouseHook(OnMousePress);
 
             tray.ShowBalloonTip(4000, "Arrow Overlay is running",
-                string.Format("Press {0} to start a line, then right-click (or {0}/{1}) to place each point. {2} deletes it, {3} opens the menu.",
-                    KeyNames.Get(settings.Point1Key), KeyNames.Get(settings.Point2Key),
-                    KeyNames.Get(settings.DeleteKey), KeyNames.Get(settings.MenuKey)),
+                string.Format("Press {0} to start a line, then right-click to place each point. {1} deletes it, {2} opens the menu.",
+                    KeyNames.Get(settings.Point1Key), KeyNames.Get(settings.DeleteKey), KeyNames.Get(settings.MenuKey)),
                 ToolTipIcon.Info);
         }
 
@@ -188,7 +187,6 @@ namespace ArrowOverlay
                 return false; // let keys reach the open dialog
 
             KeyState hotkey = vk == settings.Point1Key ? point1Key
-                : vk == settings.Point2Key ? point2Key
                 : vk == settings.CalibrateKey ? calibrateKey
                 : vk == settings.SwapKey ? swapKey
                 : vk == settings.MenuKey ? menuKey
@@ -228,7 +226,7 @@ namespace ArrowOverlay
                 state.LastTick = now;
                 return true; // auto-repeat
             }
-            if (!OverlayScreen.Bounds.Contains(Cursor.Position))
+            if (ModifierHeld() || !OverlayScreen.Bounds.Contains(Cursor.Position))
                 return false;
             state.Down = true;
             state.LastTick = now;
@@ -244,20 +242,23 @@ namespace ArrowOverlay
                 SwapSnapMode();
             else if (state == menuKey)
                 ToggleMenu();
-            else if (IsHeld(point1Key, now) && IsHeld(point2Key, now))
-                ClearLine();
-            else if (mode == Mode.Calibrating)
-            {
-                if (state == point1Key)
-                    MarkCorner(Cursor.Position);
-            }
-            else if (state == point1Key && mode == Mode.Aiming)
+            else if (mode == Mode.Calibrating) // the point 1 key from here on
+                MarkCorner(Cursor.Position);
+            else if (mode == Mode.Aiming)
                 LockPoint1(Cursor.Position);
-            else if (state == point1Key)
+            else
                 StartAiming();
-            else if (mode == Mode.Placing)
-                SetPoint2(Cursor.Position);
             return true;
+        }
+
+        private static bool ModifierHeld()
+        {
+            foreach (Keys key in new[] { Keys.Menu, Keys.ControlKey, Keys.LWin, Keys.RWin })
+            {
+                if ((NativeMethods.GetAsyncKeyState((int)key) & 0x8000) != 0)
+                    return true;
+            }
+            return false;
         }
 
         // Unlike the other hotkeys, the delete key (Backspace by default) is only taken while there's
@@ -278,7 +279,7 @@ namespace ArrowOverlay
                 deleteKey.LastTick = now;
                 return true; // auto-repeat of a press that deleted something
             }
-            if (mode == Mode.None || !OverlayScreen.Bounds.Contains(Cursor.Position))
+            if (mode == Mode.None || ModifierHeld() || !OverlayScreen.Bounds.Contains(Cursor.Position))
                 return false;
             deleteKey.Down = true;
             deleteKey.LastTick = now;
@@ -335,7 +336,7 @@ namespace ArrowOverlay
             return name == "Shell_TrayWnd" || name == "Shell_SecondaryTrayWnd" || name == "NotifyIconOverflowWindow";
         }
 
-        // A right click does what the point 1 or point 2 key would for the current step, at the click.
+        // A right click places the next point (or calibration corner) at the click.
         private void OnPlaceClick(Point point)
         {
             if (mode == Mode.Aiming)
@@ -662,8 +663,8 @@ namespace ArrowOverlay
 
         private void UpdateTrayText()
         {
-            string text = string.Format("Arrow Overlay\n{0} = point 1, {1} = point 2, both = delete",
-                KeyNames.Get(settings.Point1Key), KeyNames.Get(settings.Point2Key));
+            string text = string.Format("Arrow Overlay\n{0} = start line, {1} = delete, {2} = menu",
+                KeyNames.Get(settings.Point1Key), KeyNames.Get(settings.DeleteKey), KeyNames.Get(settings.MenuKey));
             tray.Text = text.Length > 63 ? text.Substring(0, 63) : text; // NotifyIcon's limit
         }
 

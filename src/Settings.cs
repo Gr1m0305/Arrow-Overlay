@@ -9,15 +9,13 @@ namespace ArrowOverlay
     // User preferences, stored as key=value lines in %APPDATA%\ArrowOverlay\settings.ini.
     internal sealed class Settings
     {
-        public const int DefaultPoint1Key = 0xDB; // VK_OEM_4: the [ key on US/UK layouts
-        public const int DefaultPoint2Key = 0xDD; // VK_OEM_6: the ] key on US/UK layouts
+        public const int DefaultPoint1Key = 0x09; // VK_TAB: Tab
         public const int DefaultCalibrateKey = 0xDC; // VK_OEM_5: the \ key on US layouts
         public const int DefaultSwapKey = 0xDE; // VK_OEM_7: the ' key on US layouts
         public const int DefaultDeleteKey = 0x08; // VK_BACK: Backspace
-        public const int DefaultMenuKey = 0xBA; // VK_OEM_1: the ; key on US layouts
+        public const int DefaultMenuKey = 0x4D; // M
 
         public int Point1Key = DefaultPoint1Key;
-        public int Point2Key = DefaultPoint2Key;
         public int CalibrateKey = DefaultCalibrateKey;
         public int SwapKey = DefaultSwapKey;
         public int DeleteKey = DefaultDeleteKey;
@@ -57,7 +55,6 @@ namespace ArrowOverlay
                     switch (key)
                     {
                         case "Point1Key": s.Point1Key = ParseKey(value, s.Point1Key); break;
-                        case "Point2Key": s.Point2Key = ParseKey(value, s.Point2Key); break;
                         case "CalibrateKey": s.CalibrateKey = ParseKey(value, s.CalibrateKey); break;
                         case "SwapKey": s.SwapKey = ParseKey(value, s.SwapKey); break;
                         case "DeleteKey": s.DeleteKey = ParseKey(value, s.DeleteKey); break;
@@ -89,7 +86,6 @@ namespace ArrowOverlay
                 Directory.CreateDirectory(Path.GetDirectoryName(FilePath));
                 var sb = new StringBuilder();
                 sb.AppendLine("Point1Key=" + Point1Key.ToString(CultureInfo.InvariantCulture));
-                sb.AppendLine("Point2Key=" + Point2Key.ToString(CultureInfo.InvariantCulture));
                 sb.AppendLine("CalibrateKey=" + CalibrateKey.ToString(CultureInfo.InvariantCulture));
                 sb.AppendLine("SwapKey=" + SwapKey.ToString(CultureInfo.InvariantCulture));
                 sb.AppendLine("DeleteKey=" + DeleteKey.ToString(CultureInfo.InvariantCulture));
@@ -115,31 +111,27 @@ namespace ArrowOverlay
         // The hotkeys as a list, in the order HotkeyLabels describes them.
         public static readonly string[] HotkeyLabels =
         {
-            "Set point 1:", "Set point 2:", "Calibrate grid:", "Swap snap mode:", "Delete line:", "Open menu:",
+            "Set point 1:", "Calibrate grid:", "Swap snap mode:", "Delete line:", "Open menu:",
         };
 
         public static int[] DefaultHotkeys
         {
             get
             {
-                return new[]
-                {
-                    DefaultPoint1Key, DefaultPoint2Key, DefaultCalibrateKey, DefaultSwapKey, DefaultDeleteKey, DefaultMenuKey,
-                };
+                return new[] { DefaultPoint1Key, DefaultCalibrateKey, DefaultSwapKey, DefaultDeleteKey, DefaultMenuKey };
             }
         }
 
         public int[] Hotkeys
         {
-            get { return new[] { Point1Key, Point2Key, CalibrateKey, SwapKey, DeleteKey, MenuKey }; }
+            get { return new[] { Point1Key, CalibrateKey, SwapKey, DeleteKey, MenuKey }; }
             set
             {
                 Point1Key = value[0];
-                Point2Key = value[1];
-                CalibrateKey = value[2];
-                SwapKey = value[3];
-                DeleteKey = value[4];
-                MenuKey = value[5];
+                CalibrateKey = value[1];
+                SwapKey = value[2];
+                DeleteKey = value[3];
+                MenuKey = value[4];
             }
         }
 

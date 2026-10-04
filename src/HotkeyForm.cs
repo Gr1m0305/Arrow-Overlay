@@ -45,7 +45,7 @@ namespace ArrowOverlay
                 AutoSize = true,
                 ForeColor = SystemColors.GrayText,
                 Margin = new Padding(3, 8, 3, 3),
-                Text = "Click a box, then press the key you want to use.\nPressing both point keys together also deletes the line.",
+                Text = "Click a box, then press the key you want to use.\nHotkeys are ignored while Alt, Ctrl or Windows is held.",
             };
             layout.Controls.Add(hint, 0, labels.Length);
             layout.SetColumnSpan(hint, 2);
